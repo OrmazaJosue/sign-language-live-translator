@@ -2,6 +2,8 @@ import cv2
 import mediapipe as mp
 import numpy as np
 from flask import Flask, render_template, Response
+import webbrowser
+from threading import Timer
 
 app = Flask(__name__)
 
@@ -45,7 +47,7 @@ def generar_video():
 
             # Si se detectan manos, analizar la posición de los dedos
             if results.multi_hand_landmarks:
-                for num, hand_landmarks in enumerate(results.multi_hand_landmarks):
+                for hand_landmarks in results.multi_hand_landmarks:
                     # Dibujar los puntos de la mano
                     mp_drawing.draw_landmarks(
                         image,
@@ -57,101 +59,23 @@ def generar_video():
                     # Obtener las coordenadas de los puntos de interés
                     index_finger_tip = (int(hand_landmarks.landmark[8].x * image_width),
                                         int(hand_landmarks.landmark[8].y * image_height))
+                    pinky_tip = (int(hand_landmarks.landmark[20].x * image_width),
+                                 int(hand_landmarks.landmark[20].y * image_height))
+                    thumb_tip = (int(hand_landmarks.landmark[4].x * image_width),
+                                 int(hand_landmarks.landmark[4].y * image_height))
                     middle_finger_tip = (int(hand_landmarks.landmark[12].x * image_width),
                                          int(hand_landmarks.landmark[12].y * image_height))
                     middle_finger_pip = (int(hand_landmarks.landmark[10].x * image_width),
                                          int(hand_landmarks.landmark[10].y * image_height))
-                    ring_finger_tip = (int(hand_landmarks.landmark[16].x * image_width),
-                                       int(hand_landmarks.landmark[16].y * image_height))
-                    ring_finger_pip = (int(hand_landmarks.landmark[14].x * image_width),
-                                       int(hand_landmarks.landmark[14].y * image_height))
-                    pinky_tip = (int(hand_landmarks.landmark[20].x * image_width),
-                                 int(hand_landmarks.landmark[20].y * image_height))
-                    pinky_pip = (int(hand_landmarks.landmark[18].x * image_width),
-                                 int(hand_landmarks.landmark[18].y * image_height))
 
-                    thumb_tip = (int(hand_landmarks.landmark[4].x * image_width),
-                                 int(hand_landmarks.landmark[4].y * image_height))
-                    thumb_ip = (int(hand_landmarks.landmark[3].x * image_width),
-                                int(hand_landmarks.landmark[3].y * image_height))
-                    thumb_pip = (int(hand_landmarks.landmark[2].x * image_width),
-                                 int(hand_landmarks.landmark[2].y * image_height))
-                    index_finger_pip = (int(hand_landmarks.landmark[6].x * image_width),
-                                        int(hand_landmarks.landmark[6].y * image_height))
-
-                    # Gesto "BIEN" (Pulgar hacia arriba, otros dedos hacia abajo)
-                    if thumb_pip[1] - thumb_tip[1] > 0 and thumb_pip[1] - index_finger_tip[1] < 0 \
-                        and thumb_pip[1] - middle_finger_tip[1] < 0 and thumb_pip[1] - ring_finger_tip[1]<0 \
-                        and thumb_pip[1] - pinky_tip[1] < 0:
-                        cv2.putText(image, 'BIEN', (center_x - 50, 100), 
+                    # Gesto personalizado: "Darwin es discapacitado" (Detecta la ausencia de dedo medio completo)
+                    # Se verifica si el dedo medio está extendido (simulando la falta del dedo)
+                    if thumb_tip[1] < index_finger_tip[1] and \
+                       thumb_tip[1] < pinky_tip[1] and \
+                       distancia_euclidiana(middle_finger_tip, middle_finger_pip) < 20:  # Dedo medio más corto
+                        cv2.putText(image, 'Darwin es discapacitado', (center_x - 200, 100), 
                                     cv2.FONT_HERSHEY_SIMPLEX, 
-                                    1.5, (0, 0, 255), 2) 
-
-                    # Gesto "MAL" (Pulgar hacia abajo, otros dedos hacia arriba)
-                    elif thumb_pip[1] - thumb_tip[1] < 0 and thumb_pip[1] - index_finger_tip[1] > 0 \
-                        and thumb_pip[1] - middle_finger_tip[1] > 0 and thumb_pip[1] - ring_finger_tip[1]>0 \
-                        and thumb_pip[1] - pinky_tip[1] > 0:
-                        cv2.putText(image, 'MAL', (center_x - 50, 100), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 
-                                    1.5, (0, 0, 255), 2)
-
-                    # Gesto "TE AMO" (Pulgar, índice y meñique levantados, otros dedos hacia abajo)
-                    elif thumb_pip[1] - thumb_tip[1] > 0 and \
-                         index_finger_pip[1] - index_finger_tip[1] > 0 and \
-                         middle_finger_tip[1] > middle_finger_pip[1] and \
-                         ring_finger_tip[1] > ring_finger_pip[1] and \
-                         pinky_pip[1] - pinky_tip[1] > 0:
-                        cv2.putText(image, 'TE AMO', (center_x - 100, 100), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 
-                                    1.5, (0, 0, 255), 2)
-
-                    # Gesto "PAZ" (Pulgar hacia abajo, índice y medio levantados, otros dedos hacia abajo)
-                    elif thumb_pip[1] > thumb_tip[1] and \
-                         index_finger_tip[1] < index_finger_pip[1] and \
-                         middle_finger_tip[1] < middle_finger_pip[1] and \
-                         ring_finger_tip[1] > ring_finger_pip[1] and \
-                         pinky_tip[1] > pinky_pip[1]:
-                        cv2.putText(image, 'PAZ', (center_x - 50, 200),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 
-                                    1.5, (0, 255, 0), 2)
-
-                    # Gesto "OK" (Pulgar e índice formando un círculo, otros dedos levantados)
-                    elif distancia_euclidiana(thumb_tip, index_finger_tip) < 30 and \
-                         middle_finger_tip[1] > middle_finger_pip[1] and \
-                         ring_finger_tip[1] > ring_finger_pip[1] and \
-                         pinky_tip[1] > pinky_pip[1]:
-                        cv2.putText(image, 'OK', (center_x - 50, 150),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 
-                                    1.5, (0, 255, 0), 2)
-
-                    # Gesto "GRACIAS" (Mano abierta con todos los dedos juntos y extendidos)
-                    elif thumb_tip[1] < thumb_ip[1] and \
-                         index_finger_tip[1] < index_finger_pip[1] and \
-                         middle_finger_tip[1] < middle_finger_pip[1] and \
-                         ring_finger_tip[1] < ring_finger_pip[1] and \
-                         pinky_tip[1] < pinky_pip[1]:
-                        cv2.putText(image, 'GRACIAS', (center_x - 100, 200), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 
-                                     1.5, (255, 0, 0), 2)
-
-                    # Gesto "ADIOS" (Mano abierta en la frente)
-                    elif thumb_tip[1] < thumb_ip[1] and \
-                         index_finger_tip[1] < index_finger_pip[1] and \
-                         middle_finger_tip[1] < middle_finger_pip[1] and \
-                         ring_finger_tip[1] < ring_finger_pip[1] and \
-                         pinky_tip[1] < pinky_pip[1]:
-
-                        # Verificar si la mano está en la frente (cerca de la parte superior de la imagen)
-                        frente_threshold = image_height * 0.1  # Aproximadamente 10% de la altura de la imagen
-                        
-                        # Coordenada y del centro de la mano (aproximadamente en la palma)
-                        center_hand_y = (thumb_tip[1] + index_finger_tip[1] + middle_finger_tip[1] +
-                                         ring_finger_tip[1] + pinky_tip[1]) / 5
-
-                        if center_hand_y < frente_threshold:
-                            cv2.putText(image, 'ADIOS', (center_x - 50, 250), 
-                                        cv2.FONT_HERSHEY_SIMPLEX, 
-                                        1.5, (255, 255, 0), 2)
+                                    1.2, (255, 0, 0), 2)
 
             # Codificar la imagen en formato JPEG
             _, jpeg = cv2.imencode('.jpg', image)
@@ -171,5 +95,11 @@ def video_feed():
     return Response(generar_video(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
+# Función para abrir automáticamente el navegador en http://localhost:5000
+def open_browser():
+    webbrowser.open_new("http://localhost:5000")
+
 if __name__ == '__main__':
+    # Ejecutar el navegador después de iniciar el servidor
+    Timer(1, open_browser).start()
     app.run(debug=True)
