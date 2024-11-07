@@ -1,4 +1,4 @@
-# Sign Language Live Translator
+## Sign Language Live Translator
 
 Un sistema de traducción en tiempo real de lenguaje de señas utilizando visión por computadora y procesamiento de video.
 
